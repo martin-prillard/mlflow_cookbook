@@ -1,0 +1,5 @@
+FROM ghcr.io/mlflow/mlflow:v3.5.1
+
+# Install pymysql for MySQL support
+RUN pip install --no-cache-dir pymysql
+

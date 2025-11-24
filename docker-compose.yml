@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: mlflow-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ROOTNAME
+      MINIO_ROOT_PASSWORD: CHANGEME123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: mlflow-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set minio http://minio:9000 ROOTNAME CHANGEME123) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc mb minio/mlflow-artifacts || true;
+      /usr/bin/mc anonymous set public minio/mlflow-artifacts || true;
+      echo 'Bucket mlflow-artifacts created successfully';
+      exit 0;
+      "
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: mysql+pymysql://mlflow:mlflow@mysql:3306/mlflow
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: s3://mlflow-artifacts/
+      AWS_ACCESS_KEY_ID: ROOTNAME
+      AWS_SECRET_ACCESS_KEY: CHANGEME123
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_SERVER_ALLOWED_HOSTS: "*"
+    command: mlflow server --host 0.0.0.0 --port 5000
+    depends_on:
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+    volumes:
+      - mlflow_data:/mlflow
+
+  mysql:
+    image: mysql:8.0
+    container_name: mlflow-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mlflow
+      MYSQL_USER: mlflow
+      MYSQL_PASSWORD: mlflow
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mlflow", "-pmlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: mlflow-phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: mlflow
+      PMA_PASSWORD: mlflow
+      MYSQL_ROOT_PASSWORD: rootpassword
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  jupyterlab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mlflow-jupyterlab
+    ports:
+      - "8888:8888"
+      - "1235:1235"
+    volumes:
+      - .:/app
+      - jupyter_data:/root/.jupyter
+    environment:
+      - AWS_ACCESS_KEY_ID=ROOTNAME
+      - AWS_SECRET_ACCESS_KEY=CHANGEME123
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    depends_on:
+      - mlflow
+      - minio
+
+volumes:
+  minio_data:
+  mysql_data:
+  mlflow_data:
+  jupyter_data:

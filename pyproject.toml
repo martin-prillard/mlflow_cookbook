@@ -1,0 +1,14 @@
+[project]
+name = "mlflow-trip"
+version = "0.1.0"
+description = "MLflow training exercises"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3==1.26.94",
+    "minio==7.1.13",
+    "mlflow",
+    "pandas",
+    "jupyterlab",
+    "hyperopt"
+]
+
