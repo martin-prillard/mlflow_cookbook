@@ -9,18 +9,22 @@ This repository contains MLflow training exercises in Jupyter notebooks.
 
 ## Setup and Launch
 
-### Option 1: Using Docker Compose (Recommended)
+### Option A: Using Docker Compose (Recommended)
 
 This method launches everything in containers:
 - JupyterLab with all Python dependencies
-- MLflow server (v3.5.1) connected to MinIO
+- MLflow server connected to MinIO
 - MinIO (local S3-compatible storage)
 - MySQL (MLflow backend store)
 - phpMyAdmin (MySQL administration interface)
 
 1. **Start all services:**
    ```bash
-   docker-compose up -d
+   docker-compose up
+   ```
+Note: if needed, remove the previous existing volume with previous mysql database version:
+   ```bash
+   docker volume rm mlflow_cookbook_mysql_data
    ```
 
 2. **Access the services:**
@@ -34,12 +38,7 @@ This method launches everything in containers:
    docker-compose down
    ```
 
-4. **View logs:**
-   ```bash
-   docker-compose logs -f
-   ```
-
-### Option 2: Using uv
+### Option B: Using uv
 
 This method runs JupyterLab locally using uv for dependency management.
 
@@ -48,20 +47,14 @@ This method runs JupyterLab locally using uv for dependency management.
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-2. **Create and activate the Python environment:**
+2. **Create and install the Python environment:**
    ```bash
-   uv venv --python 3.12
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv sync
    ```
 
-3. **Install dependencies:**
+3. **Start JupyterLab:**
    ```bash
-   uv pip install -e .
-   ```
-
-4. **Start JupyterLab:**
-   ```bash
-   jupyter lab
+   uv run jupyter lab
    ```
 
 5. **Configure MLflow connection:**
